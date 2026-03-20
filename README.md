@@ -18,7 +18,6 @@
 ## Table of Contents
 
 - [Overview](#overview)
-- [Screenshots](#screenshots)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Design System](#design-system)
@@ -46,58 +45,6 @@ AssignFlow is not a generic to-do app. Every screen, every piece of data, and ev
 
 ---
 
-## Screenshots
-
-### Dashboard
-> *The main screen — answers "What should I do right now?"*
-
-![Dashboard Screenshot](https://via.placeholder.com/800x500/F5F3FF/7C3AED?text=Dashboard+Screenshot)
-
----
-
-### Assignment Tracker
-> *Create, edit, filter, and update assignments by status and subject.*
-
-![Assignments Screenshot](https://via.placeholder.com/800x500/F5F3FF/7C3AED?text=Assignments+Screenshot)
-
----
-
-### MCQ Link Tracker
-> *Paste a Google Form link once. Track its deadline and submission status.*
-
-![MCQ Screenshot](https://via.placeholder.com/800x500/F5F3FF/DBEAFE?text=MCQ+Screenshot)
-
----
-
-### Pomodoro Study Timer
-> *25 or 50 minute focus sessions with automatic break timers and session history.*
-
-![Timer Screenshot](https://via.placeholder.com/800x500/F5F3FF/7C3AED?text=Timer+Screenshot)
-
----
-
-### Progress & Stats
-> *Track completion rates, study time, MCQ submission rates, and subject breakdowns.*
-
-![Stats Screenshot](https://via.placeholder.com/800x500/F5F3FF/7C3AED?text=Stats+Screenshot)
-
----
-
-### Desktop Layout
-> *Sidebar navigation with keyboard shortcuts on laptop and desktop screens.*
-
-![Desktop Screenshot](https://via.placeholder.com/1200x700/F5F3FF/7C3AED?text=Desktop+Layout+Screenshot)
-
----
-
-### Mobile Layout
-> *Fully mobile-first design with bottom navigation and touch-optimised interactions.*
-
-<div align="center">
-<img src="https://via.placeholder.com/375x812/F5F3FF/7C3AED?text=Mobile+Screenshot" alt="Mobile Screenshot" width="375" />
-</div>
-
----
 
 ## Features
 
