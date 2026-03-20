@@ -10,6 +10,7 @@ import AssignFlow from "./AssignFlow";
 import {
   getSession,
   onAuthChange,
+  signOut,
   fetchAssignments,
   createAssignment,
   updateAssignment,
@@ -117,6 +118,20 @@ export default function App() {
     setProfile(row);
   }, []);
 
+  // ── Sign out handler ──────────────────────────────────────────
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut();
+      setSession(null);
+      setProfile(null);
+      setAssignments([]);
+      setMcqLinks([]);
+      setSessions([]);
+    } catch (e) {
+      console.error("Sign out error:", e);
+    }
+  }, []);
+
   // ── Render ────────────────────────────────────────────────────
   if (session === undefined) return <LoadingScreen />;
   if (!session)              return <AuthScreen />;
@@ -135,6 +150,7 @@ export default function App() {
       onUpdateMCQ={handleUpdateMCQ}
       onDeleteMCQ={handleDeleteMCQ}
       onAddSession={handleAddSession}
+      onSignOut={handleSignOut}
     />
   );
 }

@@ -410,7 +410,7 @@ const FilterRow = ({ options, active, onChange, accent }) => (
 /* ─────────────────────────────────────────
    SCREEN: DASHBOARD
 ───────────────────────────────────────── */
-const DashboardScreen = ({ assignments, mcqLinks, sessions, nav, profile, onUpdateProfile }) => {
+const DashboardScreen = ({ assignments, mcqLinks, sessions, nav, profile, onUpdateProfile, onSignOut }) => {
   const { isDesktop, isTablet } = useBreakpoint();
   const px = isDesktop ? 32 : 16;
 
@@ -424,6 +424,7 @@ const DashboardScreen = ({ assignments, mcqLinks, sessions, nav, profile, onUpda
 
   // Profile setup modal state
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showAvatarMenu,   setShowAvatarMenu]   = useState(false);
   const [nameInput, setNameInput]   = useState(profile?.display_name || "");
   const [genderInput, setGenderInput] = useState(profile?.gender || "");
   const [profileSaving, setProfileSaving] = useState(false);
@@ -477,21 +478,78 @@ const DashboardScreen = ({ assignments, mcqLinks, sessions, nav, profile, onUpda
           )}
         </div>
 
-        {/* Avatar */}
-        <motion.div
-          whileTap={{ scale: 0.94 }}
-          onClick={() => { setNameInput(profile?.display_name || ""); setGenderInput(profile?.gender || ""); setShowProfileModal(true); }}
-          style={{ flexShrink: 0, marginLeft: 12, width: 46, height: 46, borderRadius: 14, background: avatarBg, border: `2px solid ${avatarColor}22`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-        >
-          {displayName ? (
-            <span style={{ fontSize: 16, fontWeight: 800, color: avatarColor }}>{initials}</span>
-          ) : (
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-              <circle cx="11" cy="8" r="4" stroke={avatarColor} strokeWidth="1.8" fill="none"/>
-              <path d="M3 19c0-4 3.6-7 8-7s8 3 8 7" stroke={avatarColor} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-            </svg>
-          )}
-        </motion.div>
+        {/* Avatar + dropdown menu */}
+        <div style={{ position: "relative", flexShrink: 0, marginLeft: 12 }}>
+          <motion.div
+            whileTap={{ scale: 0.94 }}
+            onClick={() => setShowAvatarMenu((v) => !v)}
+            style={{ width: 46, height: 46, borderRadius: 14, background: avatarBg, border: `2px solid ${avatarColor}22`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+          >
+            {displayName ? (
+              <span style={{ fontSize: 16, fontWeight: 800, color: avatarColor }}>{initials}</span>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <circle cx="11" cy="8" r="4" stroke={avatarColor} strokeWidth="1.8" fill="none"/>
+                <path d="M3 19c0-4 3.6-7 8-7s8 3 8 7" stroke={avatarColor} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+              </svg>
+            )}
+          </motion.div>
+
+          {/* Dropdown */}
+          <AnimatePresence>
+            {showAvatarMenu && (
+              <>
+                {/* Backdrop to close */}
+                <div style={{ position: "fixed", inset: 0, zIndex: 149 }} onClick={() => setShowAvatarMenu(false)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.92, y: -8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, y: -8 }}
+                  transition={{ duration: 0.15 }}
+                  style={{
+                    position: "absolute", top: 52, right: 0,
+                    background: C.white, borderRadius: 14,
+                    boxShadow: "0 8px 32px rgba(30,27,75,.15)",
+                    border: `1px solid ${C.lavenderLight}`,
+                    minWidth: 180, zIndex: 150, overflow: "hidden",
+                  }}
+                >
+                  {/* Profile info header */}
+                  {displayName && (
+                    <div style={{ padding: "12px 16px 10px", borderBottom: `1px solid ${C.lavenderLight}` }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.textDark }}>{displayName}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 11, color: C.textLight, textTransform: "capitalize" }}>{gender ?? "Student"}</p>
+                    </div>
+                  )}
+
+                  {/* Edit Profile */}
+                  <button
+                    onClick={() => { setShowAvatarMenu(false); setNameInput(profile?.display_name || ""); setGenderInput(profile?.gender || ""); setShowProfileModal(true); }}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", border: "none", background: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.textDark, textAlign: "left" }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <circle cx="8" cy="5" r="3" stroke={C.lavender} strokeWidth="1.4" fill="none"/>
+                      <path d="M2 14c0-3.3 2.7-5 6-5s6 1.7 6 5" stroke={C.lavender} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+                    </svg>
+                    Edit Profile
+                  </button>
+
+                  {/* Sign Out */}
+                  <button
+                    onClick={() => { setShowAvatarMenu(false); onSignOut?.(); }}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", border: "none", borderTop: `1px solid ${C.salmonLight}`, background: C.salmonLight, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.salmon, textAlign: "left" }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3" stroke={C.salmon} strokeWidth="1.4" strokeLinecap="round"/>
+                      <path d="M10 11l3-3-3-3M13 8H6" stroke={C.salmon} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Sign Out
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* ── Profile setup prompt (first login) ── */}
@@ -550,31 +608,6 @@ const DashboardScreen = ({ assignments, mcqLinks, sessions, nav, profile, onUpda
         ))}
       </div>
 
-      {/* All clear hero */}
-      {!hasAlert && todayTasks.length === 0 && overdue.length === 0 && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          style={{ background: C.mintLight, borderRadius: 18, padding: "20px 20px 16px", marginBottom: 22, display: "flex", alignItems: "center", gap: 16, border: `1px solid ${C.mintMid}` }}>
-          {/* Hero illustration */}
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-            <circle cx="32" cy="32" r="28" fill="#D1FAE5" />
-            {/* Checkmark shield */}
-            <path d="M32 14 L46 20 L46 32 C46 40 39 46 32 50 C25 46 18 40 18 32 L18 20 Z" fill="white" opacity=".9" />
-            <path d="M32 14 L46 20 L46 32 C46 40 39 46 32 50 C25 46 18 40 18 32 L18 20 Z" stroke="#6EE7B7" strokeWidth="1.5" fill="none" />
-            {/* Big check */}
-            <path d="M25 31l5 5 10-10" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            {/* Sparkles */}
-            <circle cx="12" cy="16" r="2" fill="#6EE7B7" opacity=".7" />
-            <circle cx="52" cy="20" r="1.5" fill="#6EE7B7" opacity=".6" />
-            <circle cx="14" cy="46" r="1.5" fill="#6EE7B7" opacity=".5" />
-            <circle cx="50" cy="48" r="2" fill="#6EE7B7" opacity=".6" />
-            <path d="M8 28l1.5 3-1.5 1 1.5-1 1.5 1-1.5-1 1.5-3-1.5 1z" fill="#059669" opacity=".4" />
-          </svg>
-          <div>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.mint }}>All clear!</p>
-            <p style={{ margin: "3px 0 0", fontSize: 13, color: "#065F46", fontWeight: 600, lineHeight: 1.4 }}>No overdue work or urgent deadlines today. Keep it up.</p>
-          </div>
-        </motion.div>
-      )}
       <h2 style={{ fontSize: 15, fontWeight: 800, color: C.textDark, marginBottom: 12, textTransform: "uppercase", letterSpacing: ".5px" }}>Quick Actions</h2>
       <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(4,1fr)" : "1fr 1fr", gap: 10, marginBottom: 24 }}>
         {[
@@ -611,56 +644,101 @@ const DashboardScreen = ({ assignments, mcqLinks, sessions, nav, profile, onUpda
         ))}
       </div>
 
-      {/* Due Today */}
-      {todayTasks.length > 0 && (
-        <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="2" width="16" height="14" rx="3" fill={C.salmonLight} stroke={C.salmon} strokeWidth="1.3"/><path d="M5 1.5v2M13 1.5v2" stroke={C.salmon} strokeWidth="1.3" strokeLinecap="round"/><path d="M1 7h16" stroke={C.salmon} strokeWidth="1.1"/><rect x="5.5" y="10" width="3" height="3" rx="1" fill={C.salmon}/></svg>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.textDark }}>Due Today</h2>
-            </div>
-            <span onClick={() => nav("assignments")} style={{ fontSize: 12, color: C.lavender, fontWeight: 700, cursor: "pointer" }}>See all</span>
-          </div>
-          {todayTasks.map((a) => <AssignmentCard key={a.id} a={a} onClick={() => nav("assignments")} />)}
-        </>
-      )}
+      {/* ── Main content — 2-col on desktop ── */}
+      <div style={{ display: isDesktop ? "grid" : "block", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
 
-      {/* MCQ Soon */}
-      {upcomingMCQ.length > 0 && (
-        <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "18px 0 10px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="2" width="15" height="14" rx="3" fill={C.blueLight} stroke={C.blueMid} strokeWidth="1.3"/><rect x="4" y="6" width="4" height="4" rx="1" fill={C.blue} opacity=".5"/><path d="M4.5 8l1.5 1.5 2-2" stroke={C.blue} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><rect x="10" y="7" width="4" height="1.5" rx=".75" fill={C.blue} opacity=".5"/><rect x="10" y="10" width="3" height="1.5" rx=".75" fill={C.blue} opacity=".4"/></svg>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.textDark }}>MCQ Due Soon</h2>
-            </div>
-            <span onClick={() => nav("mcq")} style={{ fontSize: 12, color: C.blue, fontWeight: 700, cursor: "pointer" }}>See all</span>
-          </div>
-          {upcomingMCQ.map((m) => <MCQCard key={m.id} m={m} onClick={() => nav("mcq")} />)}
-        </>
-      )}
+        {/* Left column: Due Today + Overdue */}
+        <div>
+          {/* Due Today */}
+          {todayTasks.length > 0 && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="2" width="16" height="14" rx="3" fill={C.salmonLight} stroke={C.salmon} strokeWidth="1.3"/><path d="M5 1.5v2M13 1.5v2" stroke={C.salmon} strokeWidth="1.3" strokeLinecap="round"/><path d="M1 7h16" stroke={C.salmon} strokeWidth="1.1"/><rect x="5.5" y="10" width="3" height="3" rx="1" fill={C.salmon}/></svg>
+                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.textDark }}>Due Today</h2>
+                </div>
+                <span onClick={() => nav("assignments")} style={{ fontSize: 12, color: C.lavender, fontWeight: 700, cursor: "pointer" }}>See all</span>
+              </div>
+              {todayTasks.map((a) => <AssignmentCard key={a.id} a={a} onClick={() => nav("assignments")} />)}
+            </>
+          )}
 
-      {/* Overdue */}
-      {overdue.length > 0 && (
-        <>
-          <div style={{ margin: "18px 0 10px" }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.salmon, display: "flex", alignItems: "center", gap: 6 }}>
-              <AlertTriangle size={16} color={C.salmon} /> Overdue
-            </h2>
-          </div>
-          {overdue.map((a) => <AssignmentCard key={a.id} a={a} onClick={() => nav("assignments")} />)}
-        </>
-      )}
+          {/* Overdue */}
+          {overdue.length > 0 && (
+            <>
+              <div style={{ margin: `${todayTasks.length ? 18 : 0}px 0 10px` }}>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.salmon, display: "flex", alignItems: "center", gap: 6 }}>
+                  <AlertTriangle size={16} color={C.salmon} /> Overdue
+                </h2>
+              </div>
+              {overdue.map((a) => <AssignmentCard key={a.id} a={a} onClick={() => nav("assignments")} />)}
+            </>
+          )}
+
+          {/* All clear — show in left col when nothing is due */}
+          {!hasAlert && todayTasks.length === 0 && overdue.length === 0 && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              style={{ background: C.mintLight, borderRadius: 18, padding: "20px 20px 16px", display: "flex", alignItems: "center", gap: 16, border: `1px solid ${C.mintMid}` }}>
+              <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="32" cy="32" r="28" fill="#D1FAE5" />
+                <path d="M32 14 L46 20 L46 32 C46 40 39 46 32 50 C25 46 18 40 18 32 L18 20 Z" fill="white" opacity=".9" />
+                <path d="M32 14 L46 20 L46 32 C46 40 39 46 32 50 C25 46 18 40 18 32 L18 20 Z" stroke="#6EE7B7" strokeWidth="1.5" fill="none" />
+                <path d="M25 31l5 5 10-10" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="16" r="2" fill="#6EE7B7" opacity=".7" />
+                <circle cx="52" cy="20" r="1.5" fill="#6EE7B7" opacity=".6" />
+              </svg>
+              <div>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.mint }}>All clear!</p>
+                <p style={{ margin: "3px 0 0", fontSize: 13, color: "#065F46", fontWeight: 600, lineHeight: 1.4 }}>No overdue work or urgent deadlines today.</p>
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Right column: MCQ Soon */}
+        <div>
+          {upcomingMCQ.length > 0 && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="2" width="15" height="14" rx="3" fill={C.blueLight} stroke={C.blueMid} strokeWidth="1.3"/><rect x="4" y="6" width="4" height="4" rx="1" fill={C.blue} opacity=".5"/><path d="M4.5 8l1.5 1.5 2-2" stroke={C.blue} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><rect x="10" y="7" width="4" height="1.5" rx=".75" fill={C.blue} opacity=".5"/><rect x="10" y="10" width="3" height="1.5" rx=".75" fill={C.blue} opacity=".4"/></svg>
+                  <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.textDark }}>MCQ Due Soon</h2>
+                </div>
+                <span onClick={() => nav("mcq")} style={{ fontSize: 12, color: C.blue, fontWeight: 700, cursor: "pointer" }}>See all</span>
+              </div>
+              {upcomingMCQ.map((m) => <MCQCard key={m.id} m={m} onClick={() => nav("mcq")} />)}
+            </>
+          )}
+
+          {/* Show keyboard hint on desktop right column */}
+          {isDesktop && (
+            <div style={{ marginTop: upcomingMCQ.length ? 20 : 0, padding: "14px 16px", background: C.lavenderLight, borderRadius: 14, border: `1px solid ${C.lavenderMid}` }}>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 800, color: C.lavender, textTransform: "uppercase", letterSpacing: ".5px" }}>Keyboard Shortcuts</p>
+              {[["1","Dashboard"],["2","Tasks"],["3","MCQ"],["4","Timer"],["5","Stats"]].map(([k,v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: C.textMid, fontWeight: 600 }}>{v}</span>
+                  <kbd style={{ fontSize: 11, fontWeight: 800, color: C.lavender, background: C.white, border: `1px solid ${C.lavenderMid}`, borderRadius: 5, padding: "1px 7px", fontFamily: "monospace" }}>{k}</kbd>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>{/* end 2-col grid */}
 
       {/* ── Profile Modal ── */}
       <AnimatePresence>
         {showProfileModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: "fixed", inset: 0, background: "rgba(30,27,75,.45)", zIndex: 200, display: "flex", alignItems: "flex-end" }}
+            style={{ position: "fixed", inset: 0, background: "rgba(30,27,75,.45)", zIndex: 200, display: "flex", alignItems: isDesktop ? "center" : "flex-end", justifyContent: isDesktop ? "center" : "stretch" }}
             onClick={() => setShowProfileModal(false)}>
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+            <motion.div
+              initial={isDesktop ? { opacity: 0, scale: 0.95, y: -10 } : { y: "100%" }}
+              animate={isDesktop ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }}
+              exit={isDesktop ? { opacity: 0, scale: 0.95, y: -10 } : { y: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 280 }}
               onClick={(e) => e.stopPropagation()}
-              style={{ background: C.white, borderRadius: "22px 22px 0 0", padding: "22px 20px 40px", width: "100%", maxWidth: 480, margin: "0 auto" }}>
+              style={{ background: C.white, borderRadius: isDesktop ? 20 : "22px 22px 0 0", padding: "28px 24px 32px", width: isDesktop ? 420 : "100%", maxWidth: isDesktop ? 420 : 480, margin: isDesktop ? 0 : "0 auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
                 <h3 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: C.textDark }}>Your Profile</h3>
                 <button onClick={() => setShowProfileModal(false)} style={{ background: C.lavenderLight, border: "none", borderRadius: 10, padding: 7, cursor: "pointer", display: "flex" }}>
@@ -1556,7 +1634,7 @@ function useBreakpoint() {
 /* ─────────────────────────────────────────
    SIDEBAR NAV  (desktop / laptop)
 ───────────────────────────────────────── */
-const SidebarNav = ({ current, nav }) => (
+const SidebarNav = ({ current, nav, profile, onSignOut }) => (
   <div style={{
     width: 220,
     flexShrink: 0,
@@ -1609,10 +1687,42 @@ const SidebarNav = ({ current, nav }) => (
       })}
     </div>
 
-    {/* Footer */}
-    <div style={{ paddingLeft: 8, borderTop: `1px solid ${C.lavenderLight}`, paddingTop: 16 }}>
-      <p style={{ margin: 0, fontSize: 11, color: C.textLight, fontWeight: 600 }}>AssignFlow v1.0</p>
-      <p style={{ margin: "2px 0 0", fontSize: 11, color: C.textLight }}>Student Productivity</p>
+    {/* Profile + sign out footer */}
+    <div style={{ borderTop: `1px solid ${C.lavenderLight}`, paddingTop: 14 }}>
+      {/* Profile row */}
+      {profile?.display_name && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, paddingLeft: 4 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 10,
+            background: C.lavenderLight,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: C.lavender }}>
+              {profile.display_name.trim().split(" ").map(w => w[0].toUpperCase()).slice(0,2).join("")}
+            </span>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: C.textDark, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile.display_name}</p>
+            <p style={{ margin: 0, fontSize: 11, color: C.textLight, textTransform: "capitalize" }}>{profile.gender ?? "Student"}</p>
+          </div>
+        </div>
+      )}
+      {/* Sign out */}
+      <button onClick={onSignOut} style={{
+        width: "100%", display: "flex", alignItems: "center", gap: 10,
+        padding: "10px 14px", borderRadius: 10,
+        border: "none", cursor: "pointer",
+        background: C.salmonLight, color: C.salmon,
+        fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+        transition: "opacity .18s",
+      }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3" stroke={C.salmon} strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M11 11l3-3-3-3M14 8H6" stroke={C.salmon} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Sign Out
+      </button>
     </div>
   </div>
 );
@@ -1633,12 +1743,29 @@ export default function AssignFlow({
   onUpdateMCQ,
   onDeleteMCQ,
   onAddSession,
+  onSignOut,
 }) {
   const [screen, setScreen] = useState("dashboard");
   const { isMobile, isTablet, isDesktop, width } = useBreakpoint();
 
+  // ── Keyboard shortcuts (desktop) ─────────────────────────────
+  useEffect(() => {
+    if (!isDesktop) return;
+    const handler = (e) => {
+      // Ignore when typing in an input/textarea
+      if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
+      if (e.key === "1") setScreen("dashboard");
+      if (e.key === "2") setScreen("assignments");
+      if (e.key === "3") setScreen("mcq");
+      if (e.key === "4") setScreen("timer");
+      if (e.key === "5") setScreen("stats");
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isDesktop]);
+
   const screenMap = {
-    dashboard:   <DashboardScreen   assignments={assignments} mcqLinks={mcqLinks} sessions={sessions} nav={setScreen} profile={profile} onUpdateProfile={onUpdateProfile} />,
+    dashboard:   <DashboardScreen   assignments={assignments} mcqLinks={mcqLinks} sessions={sessions} nav={setScreen} profile={profile} onUpdateProfile={onUpdateProfile} onSignOut={onSignOut} />,
     assignments: <AssignmentsScreen assignments={assignments} onAdd={onAddAssignment} onUpdate={onUpdateAssignment} onDelete={onDeleteAssignment} />,
     mcq:         <MCQScreen         mcqLinks={mcqLinks}      onAdd={onAddMCQ}        onUpdate={onUpdateMCQ}        onDelete={onDeleteMCQ} />,
     timer:       <TimerScreen       assignments={assignments} mcqLinks={mcqLinks} onSaveSession={onAddSession} />,
@@ -1669,7 +1796,7 @@ export default function AssignFlow({
         fontFamily: "'Nunito', system-ui, sans-serif",
       }}>
         {/* Sidebar — desktop/laptop only */}
-        {isDesktop && <SidebarNav current={screen} nav={setScreen} />}
+        {isDesktop && <SidebarNav current={screen} nav={setScreen} profile={profile} onSignOut={onSignOut} />}
 
         {/* Main content area */}
         <div style={{
