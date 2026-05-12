@@ -7,6 +7,7 @@ import {
   Play, Pause, RotateCcw,
   Zap, AlertTriangle,
   Target, Clock, TrendingUp, ClipboardList,
+  Bot, Send, Sparkles, GraduationCap, HelpCircle,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────
@@ -714,7 +715,7 @@ const DashboardScreen = ({ assignments, mcqLinks, sessions, nav, profile, onUpda
           {isDesktop && (
             <div style={{ marginTop: upcomingMCQ.length ? 20 : 0, padding: "14px 16px", background: C.lavenderLight, borderRadius: 14, border: `1px solid ${C.lavenderMid}` }}>
               <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 800, color: C.lavender, textTransform: "uppercase", letterSpacing: ".5px" }}>Keyboard Shortcuts</p>
-              {[["1","Dashboard"],["2","Tasks"],["3","MCQ"],["4","Timer"],["5","Stats"]].map(([k,v]) => (
+              {[["1","Dashboard"],["2","Tasks"],["3","MCQ"],["4","Timer"],["5","AI Tutor"],["6","Stats"]].map(([k,v]) => (
                 <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: 12, color: C.textMid, fontWeight: 600 }}>{v}</span>
                   <kbd style={{ fontSize: 11, fontWeight: 800, color: C.lavender, background: C.white, border: `1px solid ${C.lavenderMid}`, borderRadius: 5, padding: "1px 7px", fontFamily: "monospace" }}>{k}</kbd>
@@ -1540,11 +1541,358 @@ const StatsScreen = ({ assignments, mcqLinks, sessions }) => {
 /* ─────────────────────────────────────────
    BOTTOM NAV
 ───────────────────────────────────────── */
+/* ─────────────────────────────────────────
+   SCREEN: AI TUTOR CHATBOT
+───────────────────────────────────────── */
+const QUICK_PROMPTS = [
+  { label: "Solve an MCQ", icon: "mcq", text: "Help me solve this MCQ:\n\n[Paste your question and options here]" },
+  { label: "Explain a concept", icon: "concept", text: "Explain this concept in simple terms:\n\n[Type the concept here]" },
+  { label: "Check my answer", icon: "check", text: "Is this answer correct?\n\nQuestion: [your question]\nMy answer: [your answer]" },
+  { label: "Assignment help", icon: "assignment", text: "Help me with this assignment question:\n\n[Paste your question here]" },
+];
+
+function QuickIcon({ type }) {
+  const props = { width: 18, height: 18, viewBox: "0 0 18 18", fill: "none" };
+  if (type === "mcq") return <svg {...props}><rect x="1" y="1" width="16" height="16" rx="3" stroke={C.blue} strokeWidth="1.4" fill="none"/><path d="M4 5h10M4 9h7M4 13h5" stroke={C.blue} strokeWidth="1.4" strokeLinecap="round"/></svg>;
+  if (type === "concept") return <svg {...props}><circle cx="9" cy="8" r="4" stroke={C.lavender} strokeWidth="1.4" fill="none"/><path d="M9 13v3M7 16h4" stroke={C.lavender} strokeWidth="1.4" strokeLinecap="round"/></svg>;
+  if (type === "check") return <svg {...props}><circle cx="9" cy="9" r="7" stroke={C.mint} strokeWidth="1.4" fill="none"/><path d="M6 9l2.5 2.5 4-4" stroke={C.mint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  return <svg {...props}><rect x="2" y="1" width="14" height="16" rx="3" stroke={C.amber} strokeWidth="1.4" fill="none"/><path d="M5 5h8M5 9h6M5 13h4" stroke={C.amber} strokeWidth="1.4" strokeLinecap="round"/></svg>;
+}
+
+const AIChatScreen = ({ assignments, mcqLinks }) => {
+  const { isDesktop, isMobile } = useBreakpoint();
+  const px = isDesktop ? 32 : 16;
+
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content: "Hi! I'm your AI Study Assistant. I can help you solve MCQs, explain concepts, check your answers, and help with assignment questions. What do you need help with today?",
+    },
+  ]);
+  const [input, setInput]       = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const [mode, setMode]         = useState("general"); // general | mcq | assignment
+  const bottomRef = useRef(null);
+  const inputRef  = useRef(null);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  // Build system prompt based on mode
+  function systemPrompt() {
+    const assignmentList = assignments.map(a => `- ${a.title} (${a.subject}, due ${a.due_date})`).join("\n");
+    const mcqList = mcqLinks.map(m => `- ${m.title} (${m.subject}, deadline ${m.deadline})`).join("\n");
+    return `You are an expert AI Study Assistant built into AssignFlow, a student productivity app. Your role is to help college students with their academic work.
+
+You can:
+1. Solve MCQ questions — explain which answer is correct and WHY with clear reasoning
+2. Explain academic concepts in simple, student-friendly language with examples
+3. Check and correct student answers — be encouraging but honest
+4. Help with assignment questions — give structured, clear answers
+5. Summarise topics, suggest study strategies, and break down complex problems
+
+The student's current assignments are:
+${assignmentList || "No assignments added yet."}
+
+The student's current MCQ links are:
+${mcqList || "No MCQ links added yet."}
+
+Guidelines:
+- Always be encouraging, warm, and student-friendly
+- For MCQs: state the correct answer clearly, then explain the reasoning step by step
+- For assignments: give a well-structured answer the student can learn from — not just copy
+- Keep explanations concise but complete
+- Use numbered steps for multi-step problems
+- If a question is unclear, ask for clarification
+- Never refuse academic questions — students need your help`;
+  }
+
+  async function sendMessage(text) {
+    const userText = (text || input).trim();
+    if (!userText || loading) return;
+
+    const newMessages = [...messages, { role: "user", content: userText }];
+    setMessages(newMessages);
+    setInput("");
+    setLoading(true);
+    setError("");
+
+    try {
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey) throw new Error("VITE_OPENAI_API_KEY not set in .env");
+
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          max_tokens: 1000,
+          messages: [
+            { role: "system", content: systemPrompt() },
+            ...newMessages.map(m => ({ role: m.role, content: m.content })),
+          ],
+        }),
+      });
+
+      if (!res.ok) {
+        console.error("API Response:", res.status, res.statusText);
+        const errorText = await res.text();
+        console.error("Error details:", errorText);
+        throw new Error(`API request failed: ${res.status} ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const reply = data.choices?.[0]?.message?.content ?? "Sorry, I couldn't generate a response. Please try again.";
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch (e) {
+      setError("Connection failed. Please check your internet and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKey(e) {
+    if (!isMobile && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function clearChat() {
+    setMessages([{
+      role: "assistant",
+      content: "Chat cleared! Ask me anything — MCQs, concepts, assignments, or any academic doubt.",
+    }]);
+    setError("");
+  }
+
+  // Format assistant message — bold **text**, numbered lists
+  function formatMessage(text) {
+    const lines = text.split("\n");
+    return lines.map((line, i) => {
+      // Bold
+      const parts = line.split(/(\*\*[^*]+\*\*)/g).map((p, j) =>
+        p.startsWith("**") && p.endsWith("**")
+          ? <strong key={j} style={{ color: C.textDark }}>{p.slice(2, -2)}</strong>
+          : p
+      );
+      return <p key={i} style={{ margin: "3px 0", lineHeight: 1.6 }}>{parts}</p>;
+    });
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", paddingBottom: isDesktop ? 0 : 80 }}>
+
+      {/* ── Header ── */}
+      <div style={{ padding: `20px ${px}px 12px`, background: C.white, borderBottom: `1px solid ${C.lavenderLight}`, flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* AI avatar */}
+            <div style={{ width: 42, height: 42, borderRadius: 13, background: C.lavenderLight, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="6" width="18" height="13" rx="4" fill={C.lavenderLight} stroke={C.lavender} strokeWidth="1.5"/>
+                <circle cx="8.5" cy="12.5" r="1.5" fill={C.lavender}/>
+                <circle cx="15.5" cy="12.5" r="1.5" fill={C.lavender}/>
+                <path d="M9 16c0 0 1.5 1.5 3 1.5s3-1.5 3-1.5" stroke={C.lavender} strokeWidth="1.3" strokeLinecap="round"/>
+                <path d="M8 6V4M16 6V4M12 6V3" stroke={C.lavender} strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: C.textDark }}>AI Study Assistant</h2>
+              <p style={{ margin: 0, fontSize: 11, color: C.mint, fontWeight: 700 }}>
+                {loading ? "Thinking..." : "Online · Ready to help"}
+              </p>
+            </div>
+          </div>
+          {/* Clear chat */}
+          <button onClick={clearChat} style={{ background: C.lavenderLight, border: "none", borderRadius: 10, padding: "7px 12px", color: C.lavender, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+            Clear
+          </button>
+        </div>
+
+        {/* Mode selector */}
+        <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+          {[
+            { id: "general",    label: "General",    color: C.lavender, bg: C.lavenderLight },
+            { id: "mcq",        label: "MCQ Solver",  color: C.blue,     bg: C.blueLight    },
+            { id: "assignment", label: "Assignments", color: C.amber,    bg: C.amberLight   },
+          ].map(m => (
+            <button key={m.id} onClick={() => setMode(m.id)} style={{
+              padding: "5px 12px", borderRadius: 20, border: "none", cursor: "pointer",
+              background: mode === m.id ? m.color : m.bg,
+              color: mode === m.id ? C.white : m.color,
+              fontSize: 11, fontWeight: 700, fontFamily: "inherit",
+              transition: "background .18s",
+            }}>{m.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Messages ── */}
+      <div style={{ flex: 1, overflowY: "auto", padding: `16px ${px}px`, display: "flex", flexDirection: "column", gap: 14 }}>
+
+        {/* Quick prompt chips — show only on empty state */}
+        {messages.length === 1 && (
+          <div>
+            <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 700, color: C.textLight, textTransform: "uppercase", letterSpacing: ".5px" }}>Quick Start</p>
+            <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "repeat(4,1fr)" : "1fr 1fr", gap: 8 }}>
+              {QUICK_PROMPTS.map((q, i) => (
+                <motion.button key={i} whileTap={{ scale: 0.97 }} onClick={() => { setInput(q.text); inputRef.current?.focus(); }}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6, padding: "12px", borderRadius: 12, border: `1.5px solid ${C.lavenderLight}`, background: C.white, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                  <QuickIcon type={q.icon} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.textDark }}>{q.label}</span>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Message list */}
+        {messages.map((msg, i) => {
+          const isUser = msg.role === "user";
+          return (
+            <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", gap: 10, alignItems: "flex-end" }}>
+
+              {/* AI avatar for assistant messages */}
+              {!isUser && (
+                <div style={{ width: 30, height: 30, borderRadius: 10, background: C.lavenderLight, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginBottom: 2 }}>
+                  <Bot size={16} color={C.lavender} />
+                </div>
+              )}
+
+              <div style={{
+                maxWidth: isDesktop ? "65%" : "82%",
+                padding: "11px 14px",
+                borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                background: isUser ? C.lavender : C.white,
+                color: isUser ? C.white : C.textDark,
+                fontSize: 14, lineHeight: 1.6,
+                boxShadow: isUser ? "none" : "0 2px 10px rgba(124,58,237,.07)",
+                border: isUser ? "none" : `1px solid ${C.lavenderLight}`,
+              }}>
+                {isUser
+                  ? <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>
+                  : <div style={{ fontSize: 13 }}>{formatMessage(msg.content)}</div>
+                }
+              </div>
+
+              {/* User avatar */}
+              {isUser && (
+                <div style={{ width: 30, height: 30, borderRadius: 10, background: C.lavender, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginBottom: 2 }}>
+                  <GraduationCap size={16} color={C.white} />
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+
+        {/* Typing indicator */}
+        {loading && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 10, background: C.lavenderLight, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Bot size={16} color={C.lavender} />
+            </div>
+            <div style={{ padding: "12px 16px", background: C.white, borderRadius: "16px 16px 16px 4px", border: `1px solid ${C.lavenderLight}`, display: "flex", gap: 5, alignItems: "center" }}>
+              {[0, 1, 2].map(d => (
+                <motion.div key={d}
+                  animate={{ y: [0, -5, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: d * 0.15 }}
+                  style={{ width: 7, height: 7, borderRadius: "50%", background: C.lavenderMid }}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div style={{ background: C.salmonLight, borderRadius: 12, padding: "10px 14px", color: C.salmon, fontSize: 13, fontWeight: 700 }}>
+            {error}
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      {/* ── Input bar ── */}
+      <div style={{
+        padding: `10px ${px}px ${isDesktop ? 16 : 12}px`,
+        background: C.white,
+        borderTop: `1px solid ${C.lavenderLight}`,
+        flexShrink: 0,
+      }}>
+        {/* Context hint */}
+        {mode === "mcq" && (
+          <p style={{ margin: "0 0 8px", fontSize: 11, color: C.blue, fontWeight: 700 }}>
+            MCQ Mode — paste your question and options, I'll find the correct answer with explanation.
+          </p>
+        )}
+        {mode === "assignment" && (
+          <p style={{ margin: "0 0 8px", fontSize: 11, color: C.amber, fontWeight: 700 }}>
+            Assignment Mode — paste your question, I'll give you a clear, structured answer.
+          </p>
+        )}
+
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+          <textarea
+            ref={inputRef}
+            rows={1}
+            value={input}
+            onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
+            onKeyDown={handleKey}
+            placeholder={
+              mode === "mcq" ? "Paste your MCQ question here..." :
+              mode === "assignment" ? "Paste your assignment question here..." :
+              "Ask any academic doubt..."
+            }
+            style={{
+              flex: 1, padding: "11px 14px", borderRadius: 14,
+              border: `1.5px solid ${C.lavenderMid}`,
+              background: C.lavenderLight, fontSize: 14,
+              color: C.textDark, resize: "none", outline: "none",
+              fontFamily: "inherit", lineHeight: 1.5,
+              maxHeight: 120, overflowY: "auto",
+            }}
+          />
+          <motion.button
+            whileTap={{ scale: 0.94 }}
+            onClick={() => sendMessage()}
+            disabled={loading || !input.trim()}
+            style={{
+              width: 46, height: 46, borderRadius: 14, border: "none",
+              background: loading || !input.trim() ? C.lavenderLight : C.lavender,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: loading || !input.trim() ? "not-allowed" : "pointer",
+              flexShrink: 0, transition: "background .18s",
+            }}
+          >
+            <Send size={18} color={loading || !input.trim() ? C.lavenderMid : C.white} />
+          </motion.button>
+        </div>
+        <p style={{ margin: "6px 0 0", fontSize: 10, color: C.textLight, textAlign: "center" }}>
+          {isMobile ? "Press Enter for new line" : "Press Enter to send · Shift+Enter for new line"}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+
+/* ─────────────────────────────────────────
+   BOTTOM NAV TABS
+───────────────────────────────────────── */
 const TABS = [
   { id: "dashboard",   Icon: Home,     label: "Home"  },
   { id: "assignments", Icon: BookOpen, label: "Tasks" },
   { id: "mcq",         Icon: Link2,    label: "MCQ"   },
   { id: "timer",       Icon: Timer,    label: "Timer" },
+  { id: "ai",          Icon: Bot,      label: "AI"    },
   { id: "stats",       Icon: BarChart3,label: "Stats" },
 ];
 
@@ -1612,6 +1960,324 @@ const BottomNav = ({ current, nav }) => (
     })}
   </div>
 );
+
+/* ─────────────────────────────────────────
+   AI STUDY ASSISTANT CHATBOT
+───────────────────────────────────────── */
+const AIChatbot = ({ assignments, mcqLinks, sessions, profile }) => {
+  const { isMobile } = useBreakpoint();
+  const [open,    setOpen]    = useState(false);
+  const [input,   setInput]   = useState("");
+  const [messages, setMessages] = useState([
+    { role: "assistant", content: "Hi! I'm your AI study assistant. Ask me anything — deadlines, study tips, subject help, or how to plan your week." }
+  ]);
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+  const inputRef  = useRef(null);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  // Focus input when opened
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 120);
+  }, [open]);
+
+  // Build context summary for Claude
+  function buildContext() {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+
+    const aList = assignments.map(a => {
+      const days = Math.ceil((new Date(a.due_date) - new Date(todayStr)) / 86400000);
+      return `• [${a.status.toUpperCase()}] "${a.title}" (${a.subject}) — due in ${days}d, priority: ${a.priority}`;
+    }).join("\n") || "No assignments.";
+
+    const mList = mcqLinks.map(m => {
+      const days = Math.ceil((new Date(m.deadline) - new Date(todayStr)) / 86400000);
+      return `• [${m.status.toUpperCase()}] "${m.title}" (${m.subject}) — deadline in ${days}d`;
+    }).join("\n") || "No MCQ links.";
+
+    const totalStudy = sessions.reduce((s, x) => s + x.duration, 0);
+
+    return `
+Student: ${profile?.display_name ?? "Student"}
+Today: ${todayStr}
+
+ASSIGNMENTS:
+${aList}
+
+MCQ FORMS:
+${mList}
+
+Total study time logged: ${totalStudy} minutes across ${sessions.length} sessions.
+`.trim();
+  }
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    const userMsg = { role: "user", content: text };
+    const history = [...messages, userMsg];
+    setMessages(history);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (!apiKey) throw new Error("VITE_OPENAI_API_KEY not set in .env");
+
+      const systemPrompt = `You are a friendly, encouraging AI study assistant built into AssignFlow — a student productivity app.
+Your job is to help students manage their academic workload, plan study sessions, answer subject questions, and stay motivated.
+
+Here is the student's current data:
+${buildContext()}
+
+Rules:
+- Be concise, warm, and student-friendly. Use short paragraphs.
+- When asked about deadlines or assignments, refer to the data above.
+- Give practical, actionable advice.
+- Never be preachy or overly formal.
+- If asked about a subject topic, answer it helpfully as a tutor would.
+- Keep responses under 200 words unless a detailed explanation is needed.`;
+
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          max_tokens: 400,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...history.map(m => ({ role: m.role, content: m.content })),
+          ],
+        }),
+      });
+
+      if (!res.ok) {
+        console.error("API Response:", res.status, res.statusText);
+        const errorText = await res.text();
+        console.error("Error details:", errorText);
+        throw new Error(`API request failed: ${res.status} ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const reply = data.choices?.[0]?.message?.content ?? "Sorry, I couldn't get a response.";
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch (e) {
+      setMessages(prev => [...prev, { role: "assistant", content: `Error: ${e.message}` }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKey(e) {
+    if (!isMobile && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function clearChat() {
+    setMessages([{ role: "assistant", content: "Hi! I'm your AI study assistant. Ask me anything — deadlines, study tips, subject help, or how to plan your week." }]);
+  }
+
+  // Suggested prompts
+  const suggestions = [
+    "What's due today?",
+    "Help me plan my week",
+    "Which assignment is most urgent?",
+    "Give me a study tip",
+  ];
+
+  return (
+    <>
+      {/* Floating button */}
+      <motion.button
+        whileTap={{ scale: 0.93 }}
+        whileHover={{ scale: 1.07 }}
+        onClick={() => setOpen(v => !v)}
+        style={{
+          position: "fixed",
+          bottom: 90, right: 20,
+          width: 54, height: 54,
+          borderRadius: 16,
+          background: `linear-gradient(135deg, ${C.lavender}, #5B21B6)`,
+          border: "none", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: `0 6px 24px rgba(124,58,237,.4)`,
+          zIndex: 300,
+        }}
+        title="AI Study Assistant"
+      >
+        {open ? (
+          <X size={22} color="white" />
+        ) : (
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <circle cx="13" cy="13" r="12" fill="white" opacity=".15"/>
+            <path d="M7 10h12M7 13h8M7 16h10" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="20" cy="6" r="4" fill="#FCD34D"/>
+            <path d="M19 6l.8.8L21.5 5" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </motion.button>
+
+      {/* Chat window */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 16 }}
+            transition={{ type: "spring", stiffness: 340, damping: 28 }}
+            style={{
+              position: "fixed",
+              bottom: 156, right: 16,
+              width: "min(380px, calc(100vw - 32px))",
+              height: "min(520px, calc(100vh - 200px))",
+              background: C.white,
+              borderRadius: 20,
+              boxShadow: "0 16px 56px rgba(30,27,75,.18)",
+              border: `1px solid ${C.lavenderLight}`,
+              display: "flex", flexDirection: "column",
+              zIndex: 299, overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: "14px 16px",
+              background: `linear-gradient(135deg, ${C.lavender}, #5B21B6)`,
+              display: "flex", alignItems: "center", gap: 10,
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: "rgba(255,255,255,.2)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <circle cx="10" cy="10" r="9" stroke="white" strokeWidth="1.4" fill="none"/>
+                  <path d="M6 8h8M6 11h5" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
+                  <circle cx="15" cy="5" r="3" fill="#FCD34D"/>
+                  <path d="M14.2 5l.7.7 1.3-1.3" stroke="white" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "white" }}>AI Study Assistant</p>
+                <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,.7)", fontWeight: 600 }}>Powered by Claude</p>
+              </div>
+              <button onClick={clearChat} style={{
+                background: "rgba(255,255,255,.15)", border: "none",
+                borderRadius: 8, padding: "5px 10px",
+                color: "white", fontSize: 11, fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit",
+              }}>Clear</button>
+            </div>
+
+            {/* Messages */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px" }}>
+              {messages.map((m, i) => (
+                <div key={i} style={{
+                  display: "flex",
+                  justifyContent: m.role === "user" ? "flex-end" : "flex-start",
+                  marginBottom: 10,
+                }}>
+                  <div style={{
+                    maxWidth: "82%",
+                    background: m.role === "user" ? C.lavender : C.lavenderLight,
+                    color: m.role === "user" ? "white" : C.textDark,
+                    borderRadius: m.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                    padding: "9px 13px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    lineHeight: 1.55,
+                    whiteSpace: "pre-wrap",
+                  }}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+
+              {/* Typing indicator */}
+              {loading && (
+                <div style={{ display: "flex", gap: 4, padding: "4px 6px", marginBottom: 10 }}>
+                  {[0,1,2].map(i => (
+                    <motion.div key={i}
+                      animate={{ y: [0, -5, 0] }}
+                      transition={{ repeat: Infinity, duration: 0.7, delay: i * 0.15 }}
+                      style={{ width: 7, height: 7, borderRadius: "50%", background: C.lavenderMid }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Suggestion chips — only on first message */}
+              {messages.length === 1 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                  {suggestions.map((s) => (
+                    <button key={s} onClick={() => { setInput(s); setTimeout(() => inputRef.current?.focus(), 50); }}
+                      style={{
+                        background: C.lavenderLight, border: `1px solid ${C.lavenderMid}`,
+                        borderRadius: 20, padding: "5px 12px",
+                        fontSize: 11, fontWeight: 700, color: C.lavender,
+                        cursor: "pointer", fontFamily: "inherit",
+                      }}>{s}</button>
+                  ))}
+                </div>
+              )}
+
+              <div ref={bottomRef} />
+            </div>
+
+            {/* Input */}
+            <div style={{
+              padding: "10px 12px 14px",
+              borderTop: `1px solid ${C.lavenderLight}`,
+              display: "flex", gap: 8, alignItems: "flex-end",
+            }}>
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder="Ask anything..."
+                rows={1}
+                style={{
+                  flex: 1, border: `1.5px solid ${C.lavenderMid}`,
+                  borderRadius: 12, padding: "9px 12px",
+                  fontSize: 13, fontFamily: "inherit",
+                  color: C.textDark, background: C.lavenderLight,
+                  outline: "none", resize: "none",
+                  maxHeight: 80, lineHeight: 1.4,
+                }}
+              />
+              <motion.button
+                whileTap={{ scale: 0.93 }}
+                onClick={sendMessage}
+                disabled={!input.trim() || loading}
+                style={{
+                  width: 38, height: 38, borderRadius: 11,
+                  background: !input.trim() || loading ? C.lavenderLight : C.lavender,
+                  border: "none", cursor: !input.trim() || loading ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 8l12-6-5 6 5 6-12-6z" fill={!input.trim() || loading ? C.lavenderMid : "white"} />
+                </svg>
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
 
 /* ─────────────────────────────────────────
    RESPONSIVE LAYOUT HOOK
@@ -1758,7 +2424,8 @@ export default function AssignFlow({
       if (e.key === "2") setScreen("assignments");
       if (e.key === "3") setScreen("mcq");
       if (e.key === "4") setScreen("timer");
-      if (e.key === "5") setScreen("stats");
+      if (e.key === "5") setScreen("ai");
+      if (e.key === "6") setScreen("stats");
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -1769,6 +2436,7 @@ export default function AssignFlow({
     assignments: <AssignmentsScreen assignments={assignments} onAdd={onAddAssignment} onUpdate={onUpdateAssignment} onDelete={onDeleteAssignment} />,
     mcq:         <MCQScreen         mcqLinks={mcqLinks}      onAdd={onAddMCQ}        onUpdate={onUpdateMCQ}        onDelete={onDeleteMCQ} />,
     timer:       <TimerScreen       assignments={assignments} mcqLinks={mcqLinks} onSaveSession={onAddSession} />,
+    ai:          <AIChatScreen      assignments={assignments} mcqLinks={mcqLinks} />,
     stats:       <StatsScreen       assignments={assignments} mcqLinks={mcqLinks} sessions={sessions} />,
   };
 
@@ -1827,6 +2495,14 @@ export default function AssignFlow({
 
         {/* Bottom nav — mobile & tablet only */}
         {!isDesktop && <BottomNav current={screen} nav={setScreen} />}
+
+        {/* AI Study Assistant — visible on all screens */}
+        <AIChatbot
+          assignments={assignments}
+          mcqLinks={mcqLinks}
+          sessions={sessions}
+          profile={profile}
+        />
       </div>
     </>
   );
