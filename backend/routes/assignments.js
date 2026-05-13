@@ -26,7 +26,7 @@ router.post('/create', auth, isTeacher, upload.single('attachment'), async (req,
       priority,
       mcqQuestions: mcqQuestions ? JSON.parse(mcqQuestions) : [],
       teacherId: req.user.id,
-      attachmentUrl: req.file ? req.file.location : null,
+      attachmentUrl: req.file ? req.file.path : null,
       whatsappGroupId
     });
 

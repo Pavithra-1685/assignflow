@@ -15,7 +15,7 @@ router.post('/submit/:assignmentId', auth, upload.single('submission'), async (r
     const submission = new Submission({
       assignmentId,
       studentId: req.user.id,
-      fileUrl: req.file.location,
+      fileUrl: req.file.path,
       fileName: req.file.originalname,
       status: 'submitted'
     });
