@@ -56,6 +56,30 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Get Teacher Stats
+router.get('/stats/teacher', auth, isTeacher, async (req, res) => {
+  try {
+    const Submission = require('../models/Submission');
+    const assignments = await Assignment.find({ teacherId: req.user.id });
+    const assignmentIds = assignments.map(a => a._id);
+    
+    const [totalSubmissions, pendingGrading, flagged] = await Promise.all([
+      Submission.countDocuments({ assignmentId: { $in: assignmentIds } }),
+      Submission.countDocuments({ assignmentId: { $in: assignmentIds }, marks: { $exists: false } }),
+      Submission.countDocuments({ assignmentId: { $in: assignmentIds }, isFlagged: true })
+    ]);
+
+    res.json({
+      totalSubmissions,
+      pendingGrading,
+      flagged,
+      activeAssignments: assignments.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get Single Assignment
 router.get('/:id', auth, async (req, res) => {
   try {

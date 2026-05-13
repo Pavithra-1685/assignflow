@@ -1,33 +1,31 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --lavender: #7C3AED;
-  --lavender-mid: #C4B5FD;
-  --lavender-light: #EDE9FE;
-  --mint: #059669;
-  --mint-mid: #6EE7B7;
-  --mint-light: #D1FAE5;
-  --salmon: #DC2626;
-  --salmon-mid: #FCA5A5;
-  --salmon-light: #FEE2E2;
-  --blue: #2563EB;
-  --blue-mid: #93C5FD;
-  --blue-light: #DBEAFE;
-  --amber: #D97706;
-  --amber-mid: #FCD34D;
-  --amber-light: #FEF3C7;
-  --bg: #F5F3FF;
-  --white: #FFFFFF;
-  --text-dark: #1E1B4B;
-  --text-mid: #6B7280;
-  --text-light: #9CA3AF;
+@theme {
+  --color-lavender: #7C3AED;
+  --color-lavender-mid: #C4B5FD;
+  --color-lavender-light: #EDE9FE;
+  --color-mint: #059669;
+  --color-mint-mid: #6EE7B7;
+  --color-mint-light: #D1FAE5;
+  --color-salmon: #DC2626;
+  --color-salmon-mid: #FCA5A5;
+  --color-salmon-light: #FEE2E2;
+  --color-blue: #2563EB;
+  --color-blue-mid: #93C5FD;
+  --color-blue-light: #DBEAFE;
+  --color-amber: #D97706;
+  --color-amber-mid: #FCD34D;
+  --color-amber-light: #FEF3C7;
+  --color-bg: #F5F3FF;
+  --color-white: #FFFFFF;
+  --color-text-dark: #1E1B4B;
+  --color-text-mid: #6B7280;
+  --color-text-light: #9CA3AF;
 }
 
 body {
-  background-color: var(--bg);
-  color: var(--text-dark);
+  background-color: var(--color-bg);
+  color: var(--color-text-dark);
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -36,9 +34,9 @@ body {
     @apply bg-white rounded-2xl p-4 border border-lavender-mid/25 shadow-sm;
   }
   .btn-primary {
-    @apply bg-lavender text-white px-4 py-2 rounded-xl font-bold hover:bg-opacity-90 transition-all;
+    @apply bg-lavender text-white px-4 py-2 rounded-xl font-bold hover:opacity-90 transition-all;
   }
   .input-field {
-    @apply w-full p-3 rounded-xl border-1.5 border-lavender-mid bg-lavender-light text-text-dark outline-none focus:border-lavender;
+    @apply w-full p-3 rounded-xl border border-lavender-mid bg-lavender-light text-text-dark outline-none focus:border-lavender;
   }
 }

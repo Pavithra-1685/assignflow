@@ -35,10 +35,12 @@ const authRoutes = require('./routes/auth');
 const assignmentRoutes = require('./routes/assignments');
 const aiRoutes = require('./routes/ai');
 const submissionRoutes = require('./routes/submissions');
+const mcqRoutes = require('./routes/mcqs');
 app.use('/api/auth', authRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/submissions', submissionRoutes);
+app.use('/api/mcqs', mcqRoutes);
 
 // Basic Route
 app.get('/', (req, res) => {

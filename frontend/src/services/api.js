@@ -26,12 +26,20 @@ export const assignmentService = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   fetchOne: (id) => api.get(`/assignments/${id}`),
+  fetchTeacherStats: () => api.get('/assignments/stats/teacher')
 };
 
 export const submissionService = {
   submit: (assignmentId, formData) => api.post(`/submissions/submit/${assignmentId}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  fetchByAssignment: (assignmentId) => api.get(`/submissions/assignment/${assignmentId}`),
+  grade: (submissionId, data) => api.patch(`/submissions/grade/${submissionId}`, data)
+};
+
+export const mcqService = {
+  fetchPractice: () => api.get('/mcqs/practice'),
+  seed: () => api.post('/mcqs/seed')
 };
 
 export const aiService = {
